@@ -2,7 +2,6 @@ import numpy as np
 import cudamat.gnumpy as gnp
 from easydict import EasyDict
 
-import mang.visualization as vis
 import mang.node as mnode
 from mang.batch import Batch
 

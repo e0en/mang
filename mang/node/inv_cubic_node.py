@@ -1,5 +1,5 @@
-from mang.node.node import Node
-import mang.node.functions as F
+from .node import Node
+from . import functions as F
 
 
 class InvCubicNode(Node):

@@ -1,4 +1,4 @@
-from mang.node.node import Node
+from .node import Node
 
 
 class InputNode(Node):

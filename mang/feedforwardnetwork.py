@@ -130,7 +130,6 @@ class FeedForwardNetwork(object):
         option = dict(self._init_training(**option))
         momentum_f = option['momentum']
         measures = option['measure']
-        print option
         for i_epoch in xrange(option['n_epoch']):
             option['eps'] *= 0.998
             if i_epoch < 500:
@@ -148,7 +147,7 @@ class FeedForwardNetwork(object):
                 print 'eps=%g, momentum=%g,' % \
                         (option['eps'], option['momentum'])
                 measure_msg = self.evaluate(inputs, outputs, measures)
-                print 'RMSE= %s' % measure_msg
+                print 'performance=%s' % measure_msg
             yield i_epoch
         self._finish_training(**option)
 

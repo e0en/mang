@@ -36,3 +36,5 @@ nosetests.xml
 
 # data files
 *.npz
+*.mat
+*.png

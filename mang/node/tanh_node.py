@@ -1,10 +1,14 @@
+import numpy as np
+import cudamat.gnumpy as gnp
+
 from .node import Node
 from . import functions as F
 
 
 class TanhNode(Node):
-    def f(self, x):
-        return F.tanh(x)
+    def up(self, x):
+        b = self.b_g if isinstance(x, gnp.garray) else self.b
+        return F.tanh(x + b)
 
-    def df(self, y):
-        return 1. - y*y
+    def down(self, y, dy):
+        dy *= (1. - y * y)

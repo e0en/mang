@@ -1,6 +1,7 @@
 import numpy as np
 import cudamat.gnumpy as gnp
 
+
 def logistic(x):
     if isinstance(x, gnp.garray):
         return 1./(1. + gnp.exp(-x))

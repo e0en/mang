@@ -36,3 +36,8 @@ def multi_label(predicted, target, is_d=False):
         raise NotImplementedError
     else:
         raise NotImplementedError
+
+cost_table = {
+        "squared_error": squared_error,
+        "cross_entropy": cross_entropy,
+        }

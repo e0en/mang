@@ -290,15 +290,12 @@ class FeedForwardNetwork(object):
                             self.edges[conn2].down(self._g.do[name])
 
     def _update(self, option):
-        # SGD with momentum
-        momentum = option["momentum"]
-        eps = option["eps"] * (1. - momentum)
         for conn in self.edges:
             if conn not in option["skip_list"]:
-                self.edges[conn].update(eps, momentum)
+                self.edges[conn].update(option)
         for name in self.nodes:
             if name not in self.inputs:
-                self.nodes[name].update(eps, momentum)
+                self.nodes[name].update(option)
 
     def feed_forward(self, data, **option):
         y = {}

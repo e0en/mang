@@ -33,7 +33,9 @@ class Node(object):
     def gradient(self, dy):
         self.gb = dy.mean(0)
 
-    def update(self, eps, momentum):
+    def update(self, option):
+        momentum = option["momentum"]
+        eps = option["eps"] * (1. - momentum)
         self.db *= momentum
         self.db += eps * self.gb
         self.b_g += self.db

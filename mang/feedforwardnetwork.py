@@ -124,6 +124,9 @@ class FeedForwardNetwork(object):
                 self._g["mask"][name] =\
                         gnp.zeros((batch_size, self.nodes[name].size))
 
+        if option["drop_view"]:
+            self._g["drop_mask"] = gnp.zeros((self.n_input + 1, batch_size))
+
         self._g = EasyDict(self._g)
         return option
 
@@ -203,12 +206,14 @@ class FeedForwardNetwork(object):
                             noise_func(self._g.data[name], param)
             if option["drop_view"]:
                 # randomly drop views if user chose to do so
-                self._g.drop_mask = (self.n_input + 1) *\
-                        gnp.rand(option["batch_size"], ) - 1
-                for name in self.inputs:
-                    self._g.data[name] =\
-                            (self._g.data[name].T * self._g.drop_mask < 1).T
-                    self._g.drop_mask -= 1
+                self._g.drop_mask = gnp.rand(self.n_input + 1,
+                        option["batch_size"])
+                prob = 1. / (self.n_input + 1)
+                for (i, name) in enumerate(self.inputs):
+                    tmp = self._g.drop_mask[self.n_input] <= prob
+                    tmp += self._g.drop_mask[i] <= prob
+                    tmp >= 0
+                    self._g.data[name] = (self._g.data[name].T * tmp).T
 
             # mini-batch training
             self.fit_step(option)

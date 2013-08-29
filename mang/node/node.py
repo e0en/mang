@@ -5,37 +5,30 @@ import cudamat.gnumpy as gnp
 
 
 class Node(object):
+    """Node with linear(or identity) activation function."""
     def __init__(self, shape, option):
         self.shape = shape
         self.size = reduce(mul, self.shape)
         self.b = np.zeros(self.size)
+        self.on_gpu = False
 
-    def init_training(self, option):
-        if option["reset"]:
-            self.b = np.zeros(self.size)
-        self.b_g = gnp.garray(self.b)
-        self.db = gnp.zeros(self.b.shape)
-        self.gb = gnp.zeros(self.b.shape)
-
-    def copy_params(self):
-        self.b = self.b_g.asarray()
+    def init_training(self):
+        self.b = gnp.garray(self.b)
+        self.on_gpu = True
 
     def finish_training(self):
-        del self.b_g, self.db, self.gb
+        self.b = self.b.asarray()
+        self.on_gpu = False
 
     def up(self, x):
-        b = self.b_g if isinstance(x, gnp.garray) else self.b
+        if isinstance(x, np.ndarray) and self.on_gpu:
+            b = self.b.asarray()
+        else:
+            b = self.b
         return x + b
 
     def down(self, y, dy):
         dy *= y*0. + 1.
 
     def gradient(self, dy):
-        self.gb = dy.mean(0)
-
-    def update(self, option):
-        momentum = option["momentum"]
-        eps = option["eps"] * (1. - momentum)
-        self.db *= momentum
-        self.db += eps * self.gb
-        self.b_g += self.db
+        return dy.mean(0)

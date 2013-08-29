@@ -7,7 +7,10 @@ import cudamat.gnumpy as gnp
 
 class LogisticNode(Node):
     def up(self, x):
-        b = self.b_g if isinstance(x, gnp.garray) else self.b
+        if isinstance(x, np.ndarray) and self.on_gpu:
+            b = self.b.asarray()
+        else:
+            b = self.b
         return F.logistic(x + b)
 
     def down(self, y, dy):

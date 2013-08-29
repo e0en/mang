@@ -2,13 +2,8 @@ import os
 
 import requests
 import numpy as np
-import cudamat.gnumpy as gnp
 
 from mang.feedforwardnetwork import FeedForwardNetwork as FF
-from mang import cost
-from mang import measure
-from mang import node as mnode
-
 import e0en.visualization as vis
 
 
@@ -26,33 +21,36 @@ mnist = np.load('mnist.npz')
 
 # create a simple neural network
 nodes = {
-        "input": {"type": "affine", "shape": (28, 28)},
-        "hidden": {"type": "relu", "shape": (1024, )},
-        "output": {"type": "affine", "shape": (28, 28)},
-        }
+    "input": {"type": "affine", "shape": (28, 28)},
+    "hidden": {"type": "relu", "shape": (1024, )},
+    "output": {"type": "relu", "shape": (28, 28)},
+    }
 edges = {
-        ("input", "hidden"): {"type": "full"},
-        ("hidden", "output"): {"type": "full"},
-        }
+    ("input", "hidden"): {"type": "full"},
+    ("hidden", "output"): {
+        "type": "ref",
+        "original": ("input", "hidden"),
+        "transpose": True,
+        },
+    }
 nn = FF(nodes, edges)
 
+
 def callback_function(nn, i_epoch, data):
-    print i_epoch, nn.evaluate(data, {"output": "mse"})
+    print i_epoch, nn.evaluate(data, {"output": "rmse"})
+    img = vis.matrix_image(nn._g["y"]["output"].asarray(), shape=(28, 28))
+    img.save("%d.png" % i_epoch)
 
 data = {
-        "input": mnist['X'] - mnist['X'].mean(0),
-        "output": mnist['X'] - mnist['X'].mean(0),
-        }
+    "input": mnist['X'] - mnist['X'].mean(0),
+    "output": mnist['X'],
+    }
 
 option = {
-        'n_epoch': 100,
-        'eps': 0.1,
-        'cost': {"output": "squared_error"},
-        "measure": {"output": "accuracy"},
-        "shared_t": {
-            ("hidden", "output"): ("input", "hidden"),
-            },
-        "callback": lambda x, y: callback_function(x, y, data),
-        }
+    'n_epoch': 100,
+    'eps': 0.1,
+    'cost': {"output": "squared_error"},
+    "callback": lambda x, y: callback_function(x, y, data),
+    }
 
 nn.fit(data, **option)

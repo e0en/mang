@@ -1,33 +1,38 @@
+from operator import mul
+
 import numpy as np
-import cudamat.gnumpy as gnp
+import cudamat as cm
 
 
 class Edge(object):
-    def __init__(self, node_in, node_out, option):
-        self.shape = (node_in.size, node_out.size)
-        self.shape_in = node_in.shape
-        self.shape_out = node_out.shape
+    def __init__(self, shape_in, shape_out, option={}):
+        size_in = reduce(mul, shape_in)
+        size_out = reduce(mul, shape_out)
+        self.shape = (size_in, size_out)
+        self.shape_in = shape_in
+        self.shape_out = shape_out
         self.W = np.zeros(self.shape)
         self.on_gpu = False
 
-    def init_training(self):
-        self.W = gnp.garray(self.W)
+    def init_training(self, option):
+        self.W = cm.CUDAMatrix(self.W)
         self.on_gpu = True
 
     def finish_training(self):
-        self.W = self.W.asarray()
+        W = self.W.asarray()
+        self.W.free_device_memory()
+        self.W = W
         self.on_gpu = False
 
-    def up(self, x):
-        dot = gnp.dot if isinstance(x, gnp.garray) else np.dot
-        if isinstance(x, np.ndarray) and self.on_gpu:
-            W = self.W.asarray()
+    def up(self, x, o=None):
+        if o is None:
+            W = self.W.asarray() if self.on_gpu else self.W
+            return np.dot(x, W)
         else:
-            W = self.W
-        return dot(x, W)
+            o.add_dot(x, self.W)
 
-    def down(self, do):
-        return gnp.dot(do, self.W.T)
+    def down(self, do, dx, o, x):
+        dx.add_dot(do, self.W.T)
 
-    def gradient(self, x, do):
-        return gnp.dot(x.T, do) / x.shape[0]
+    def gradient(self, x, do, gW):
+        gW.add_dot(x.T, do, 1. / x.shape[0])

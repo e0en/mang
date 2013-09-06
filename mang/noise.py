@@ -10,25 +10,26 @@ Stochastic noises to be added to inputs of neural networks.
 .. moduleauthor:: Yoonseop Kang <e0engoon@gmail.com>
 
 """
-import cudamat.gnumpy as gnp
+import cudamat as cm
 
 
-def gaussian(x, option):
+def gaussian(x, option, result):
     """Add gaussian noise with a fixed variance and return the result."""
-    return x + option["level"] * gnp.randn(*x.shape)
+    result.fill_with_randn()
+    result.mult(option["level"])
+    result.add(x)
 
 
-
-def salt(x, option):
+def salt(x, option, result):
     """Randomly replace elements of inputs by 1."""
-    mask = gnp.rand(*x.shape) < option["level"]
-    return (1. - mask) * x + mask
+    result.assign(x)
+    result.dropout(option["level"], 1.)
 
 
-def pepper(x, option):
+def pepper(x, option, result):
     """Randomly replace elements of inputs by 0."""
-    mask = gnp.rand(*x.shape) > option["level"]
-    return mask * x
+    result.assign(x)
+    result.dropout(option["level"], 0.)
 
 
 noise_table = {

@@ -21,9 +21,9 @@ mnist = np.load('mnist.npz')
 
 # create a simple neural network
 nodes = {
-    "input": {"type": "affine", "shape": (28, 28)},
+    "input": {"type": "affine", "shape": (28, 28, 1)},
     "hidden": {"type": "relu", "shape": (1024, )},
-    "output": {"type": "relu", "shape": (28, 28)},
+    "output": {"type": "relu", "shape": (28, 28, 1)},
     }
 edges = {
     ("input", "hidden"): {"type": "full"},
@@ -47,7 +47,7 @@ data = {
     }
 
 option = {
-    'n_epoch': 100,
+    'n_epoch': 20,
     'eps': 0.1,
     'cost': {"output": "squared_error"},
     "callback": lambda x, y: callback_function(x, y, data),

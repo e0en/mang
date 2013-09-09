@@ -328,29 +328,27 @@ class FeedForwardNetwork(object):
             if name not in self.boundary:
                 self.nodes[name].dy.assign(0)
             elif name in self.outputs:
-                node_type = self.nodes[name].type_name
                 cost_name = self.node_param[name]["cost"]
 
                 # handle special cases for faster calculation
-                if node_type == "softmax" and \
-                        cost_name in ["squared_error", "cross_entropy"]:
-                    self.nodes[name].y.apply_softmax_grad(
-                        self._g["data"][name], self.nodes[name].dy)
-                    self.nodes[name].dy.mult(-1)
-                elif node_type == "logistic" and cost_name == "cross_entropy":
-                    self.nodes[name].y.subtract(
-                        self._g["data"][name], self.nodes[name].dy)
+                if isinstance(self.nodes[name], mnode.SoftmaxNode) or \
+                        (isinstance(self.nodes[name], mnode.LogisticNode) and
+                            cost_name == "cross_entropy"):
+                    self._g["data"][name].subtract(
+                        self.nodes[name].y, self.nodes[name].dy)
                 else:
                     cost_func = D_COST_TABLE[cost_name]
                     cost_func(self.nodes[name].y, self._g["data"][name],
                               self.nodes[name].dy)
+                    self.nodes[name].down()
 
         for conn in self.edges:
             if conn not in self.ref_graph:
                 self._g["gW"][conn].assign(0)
         for name in self.bp_order:
-            if name not in self.inputs:
+            if name not in self.outputs:
                 self.nodes[name].down()
+            if name not in self.inputs:
                 self.nodes[name].gradient(self._g["gb"][name])
                 # dropout: randomly drop hidden nodes using binary masks
                 dropout = self.node_param[name]["dropout"]

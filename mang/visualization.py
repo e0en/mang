@@ -54,5 +54,9 @@ def filter_image(mat, shape, order="F"):
             i_img += 1
             if i_img >= n:
                 break
-    image = Image.fromarray(np.uint8(255. * arr.T))
+    if len(arr.shape) == 2:
+        arr = arr.T
+    else:
+        arr = np.transpose(arr, (1, 0, 2))
+    image = Image.fromarray(np.uint8(255. * arr))
     return image

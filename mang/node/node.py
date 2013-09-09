@@ -9,7 +9,6 @@ class Node(object):
     """Node with linear(or identity) activation function."""
 
     def __init__(self, shape, option):
-        self.type_name = "affine"
         self.shape = shape
         self.size = reduce(mul, self.shape)
         if "use_bias" in option:

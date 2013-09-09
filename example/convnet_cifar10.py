@@ -139,6 +139,9 @@ option = {
     'n_epoch': 100,
     'batch_size': 64,
     "eps_decay": 0.95,
+    "node_param": {
+        "hidden": {"init_b": 1., },
+        },
     "edge_param": {
         ("input", "conv1"): {
             "eps": 1e-1,

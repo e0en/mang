@@ -25,12 +25,15 @@ setup(
     name="mang",
     version="0.1",
     description="Another neural network library for python based on cudamat",
-    url="http://github.com/e0en/mang",
+
+    install_requires=["numpy>=1.6.1"],
+
+    packages=["mang", "mang.node", "mang.edge", "mang.cudamat"],
+    package_data={"mang.cudamat": CUDAMAT_FILES, },
+    cmdclass={"install": MyInstall},
+
     author="Yoonseop Kang",
     author_email="e0engoon@gmail.com",
-    packages=["mang", "mang.node", "mang.edge", "mang.cudamat"],
-    package_data={
-        "mang.cudamat": CUDAMAT_FILES,
-        },
-    cmdclass={"install": MyInstall},
+    url="http://github.com/e0en/mang",
+    keywords="neural network, artificial intelligence, machine learning",
     zip_safe=False)

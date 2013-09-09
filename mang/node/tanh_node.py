@@ -1,21 +1,16 @@
-import numpy as np
-import cudamat as cm
-
+import mang.cudamat as cm
 from .node import Node
 from . import functions as F
 
 
 class TanhNode(Node):
-    def up(self, x, o=None):
-        (x, o, shape_old) = self._make_shape(x, o)
-        if o is None:
-            o = self._add_b(x, o)
-            o = F.tanh(o)
-            return self._recover_shape(x, o, shape_old)
-        else:
-            self._add_b(x, o)
-            cm.tanh(o)
-            self._recover_shape(x, o, shape_old)
+    def up(self):
+        self._add_b()
 
-    def down(self, y, dy):
-        dy.apply_tanh_deriv(y)
+        if self.on_gpu:
+            cm.tanh(self.y)
+        else:
+            self.y = F.tanh(self.y)
+
+    def down(self):
+        self.dy.apply_tanh_deriv(self.y)

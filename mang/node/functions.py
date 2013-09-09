@@ -1,25 +1,15 @@
 import numpy as np
-import cudamat.gnumpy as gnp
 
 
 def logistic(x):
-    if isinstance(x, gnp.garray):
-        return 1./(1. + gnp.exp(-x))
-    else:
-        return 1./(1. + np.exp(-x))
+    return 1./(1. + np.exp(-x))
 
 def tanh(x):
-    if isinstance(x, gnp.garray):
-        return gnp.tanh(x)
-    else:
-        return np.tanh(x)
+    return np.tanh(x)
 
 def softmax(x):
     tmp = x.T - x.max(1) # for numerical stability
-    if isinstance(x, gnp.garray):
-        tmp = gnp.exp(tmp)
-    else:
-        tmp = np.exp(tmp)
+    tmp = np.exp(tmp)
     return (tmp/(tmp.sum(0) + 0.01)).T
 
 def inv_cubic(x):

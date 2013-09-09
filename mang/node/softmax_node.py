@@ -1,5 +1,4 @@
-import cudamat as cm
-
+import mang.cudamat as cm
 from .node import Node
 from . import functions as F
 
@@ -7,30 +6,28 @@ from . import functions as F
 class SoftmaxNode(Node):
     def init_training(self, option):
         Node.init_training(self, option)
-        self.o_t = cm.empty((self.size, option["batch_size"]))
+        self.y_t = cm.empty((self.size, option["batch_size"]))
 
     def finish_training(self):
-        self.o_t.free_device_memory()
+        Node.finish_training(self)
+        self.y_t.free_device_memory()
+        del self.y_t
 
-    def up(self, x, o=None):
+    def up(self):
         if self.shared:
             raise NotImplementedError
 
-        if o is None:
-            if self.use_bias:
-                b = self.b.asarray() if self.on_gpu else self.b
-                o = F.softmax(x + b)
-            else:
-                o = F.softmax(x)
-            return o
+        self._add_b()
+        if self.on_gpu:
+            if self.y_t.shape != self.y.shape:
+                self.y_t.free_device_memory()
+                self.y_t = cm.empty((self.y.shape[1], self.y.shape[0]))
+            self.y.transpose(self.y_t)
+            cm.softmax(self.y_t)
+            self.y_t.transpose(self.y)
         else:
-            if self.use_bias:
-                x.add_row_vec(self.b, o)
-            else:
-                o.assign(x)
-            o.transpose(self.o_t)
-            cm.softmax(self.o_t)
-            self.o_t.transpose(o)
+            self.y = F.softmax(self.y)
 
-    def down(self, y, dy):
-        dy.apply_logistic_deriv(y)
+    def down(self):
+        pass
+        # self.dy.apply_logistic_deriv(self.y)

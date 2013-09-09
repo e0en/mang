@@ -1,7 +1,8 @@
 from operator import mul
 
 import numpy as np
-import cudamat as cm
+
+import mang.cudamat as cm
 
 
 class Edge(object):

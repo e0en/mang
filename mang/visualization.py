@@ -9,16 +9,21 @@ def filter_image(mat, shape, order="F"):
     if len(shape) == 2:
         arr = np.zeros((w * (shape[0] + 1) - 1, h * (shape[1] + 1) - 1))
     elif len(shape) == 3:
-        if shape[2] == 3:  # RGB image
+        if shape[2] == 1:
+            arr = np.zeros((w * (shape[0] + 1) - 1, h * (shape[1] + 1) - 1))
+        elif shape[2] == 3:  # RGB image
             arr = np.zeros((w * (shape[0] + 1) - 1, h * (shape[1] + 1) - 1, 3))
         else:
-            arr = np.zeros((w * (shape[0] + 1) - 1,
-                            h * (shape[1] * shape[2] + 1) - 1))
+            w_p = int(np.sqrt(shape[2]))
+            h_p = int(np.ceil(1. * shape[2] / w_p))
+
+            arr = np.zeros((w * ((shape[0] + 1) * w_p + 2) - 3,
+                            h * ((shape[1] + 1) * h_p + 2) - 3))
     else:
         raise NotImplementedError
     i_img = 0
-    for i_x in xrange(w):
-        for i_y in xrange(h):
+    for i_y in xrange(h):
+        for i_x in xrange(w):
             patch = mat[i_img].reshape(shape, order=order)
             patch -= patch.min()
             patch /= patch.max()
@@ -28,13 +33,26 @@ def filter_image(mat, shape, order="F"):
                 j1 = i_y * (shape[1] + 1)
                 j2 = j1 + shape[1]
                 arr[i1:i2, j1:j2] = patch
+            elif shape[2] == 1:
+                j1 = i_y * (shape[1] + 1)
+                j2 = j1 + shape[1]
+                arr[i1:i2, j1:j2] = patch[:, :, 0].squeeze()
             else:
-                for i_ch in xrange(shape[2]):
-                    j1 = i_y * (shape[2] * shape[1] + 1) + i_ch * shape[1]
-                    j2 = j1 + shape[1]
-                    arr[i1:i2, j1:j2] = patch[:, :, i_ch].squeeze()
+                i_ch = 0
+                for i_y_p in xrange(h_p):
+                    for i_x_p in xrange(w_p):
+                        i1 = i_x * (w_p * (shape[0] + 1) + 2) + \
+                            i_x_p * (shape[0] + 1)
+                        i2 = i1 + shape[0]
+                        j1 = i_y * (h_p * (shape[1] + 1) + 2) + \
+                            i_y_p * (shape[1] + 1)
+                        j2 = j1 + shape[1]
+                        arr[i1:i2, j1:j2] = patch[:, :, i_ch].squeeze()
+                        i_ch += 1
+                        if i_ch >= shape[2]:
+                            break
             i_img += 1
             if i_img >= n:
                 break
-    image = Image.fromarray(np.uint8(255. * arr))
+    image = Image.fromarray(np.uint8(255. * arr.T))
     return image

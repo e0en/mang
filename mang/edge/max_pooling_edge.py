@@ -1,9 +1,9 @@
 from operator import mul
 
 import numpy as np
-import cudamat as cm
-import cudamat.cudamat_conv as cm_conv
 
+import mang.cudamat as cm
+from mang.cudamat import cudamat_conv as cm_conv
 from mang.edge.edge import Edge
 
 
@@ -32,22 +32,14 @@ class MaxPoolingEdge(Edge):
         self.o.free_device_memory()
         del self.o
 
-    def up(self, x, o=None):
-        if o is None:
-            x_cm = cm.CUDAMatrix(x)
-            o_cm = cm.empty((x.shape[0], self.shape[1]))
-            cm_conv.MaxPool(x_cm, o_cm, self.n_channel, self.ratio, 0,
-                            self.stride, self.shape_out[0])
-            x_cm.free_device_memory()
-            o = o_cm.asarray()
-            o_cm.free_device_memory()
-            o *= self.scale
-            return o
-        else:
-            cm_conv.MaxPool(x, self.o, self.n_channel, self.ratio, 0,
-                            self.stride, self.shape_out[0])
-            o.assign(self.o)
-            o.mult(self.scale)
+    def up(self, x, o):
+        if self.o.shape != o.shape:
+            self.o.free_device_memory()
+            self.o = cm.empty((x.shape[0], self.shape[1]))
+        cm_conv.MaxPool(x, self.o, self.n_channel, self.ratio, 0,
+                        self.stride, self.shape_out[0])
+        o.assign(self.o)
+        o.mult(self.scale)
 
     def down(self, do, dx, o, x):
         cm_conv.MaxPoolUndo(x, dx, do, self.o, self.ratio, 0, self.stride,

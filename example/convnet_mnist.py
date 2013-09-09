@@ -59,7 +59,7 @@ nodes = {
         "pow_scale": .75,
         },
     "hidden": {"type": "relu", "shape": (500, )},
-    "output": {"type": "relu", "shape": (10, )},  #, "use_bias": False, },
+    "output": {"type": "softmax", "shape": (10, )},
     }
 
 edges = {
@@ -91,7 +91,25 @@ nn = FF(nodes, edges)
 
 
 # train the neural network
-def callback_function(nn, i_epoch):
+def callback_function(nn, stat):
+    i_epoch = stat[-1]["epoch"]
+
+    mat = nn.nodes["input"].y.asarray()
+    img = filter_image(mat, shape=nn.nodes["input"].shape)
+    img.save("mnist_input_%d.png" % i_epoch)
+
+    mat = nn.nodes["hidden"].y.asarray()
+    img = filter_image(mat, shape=(25, 20))
+    img.save("mnist_hidden_%d.png" % i_epoch)
+
+    mat = nn.nodes["output"].y.asarray()
+    img = filter_image(mat, shape=(2, 5))
+    img.save("mnist_output_%d.png" % i_epoch)
+
+    mat = nn.nodes["output"].dy.asarray()
+    img = filter_image(mat, shape=(2, 5))
+    img.save("mnist_dy_%d.png" % i_epoch)
+
     mat = nn.edges["input", "conv1"].W.asarray()
     filter_size = nn.edges["input", "conv1"].filter_size
     n_channel = nn.nodes["input"].shape[-1]
@@ -127,16 +145,18 @@ option = {
         },
     "node_param": {
         "conv1": {
+            "init_b": 0.,
             "eps": 1e-1,
             },
         "conv2": {
+            "init_b": 0.,
             "eps": 1e-1,
             },
         "hidden": {
+            "init_b": 0.,
             "eps": 1e-1,
             },
         "output": {
-            "eps": 1e-1,
             "cost": "squared_error",
             },
         },

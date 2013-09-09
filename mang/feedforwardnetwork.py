@@ -1,8 +1,10 @@
-import numpy as np
-import cudamat as cm
+import time
 
-from mang.measure import measure_table
-from mang.cost import d_cost_table
+import numpy as np
+import mang.cudamat as cm
+
+from mang.measure import MEASURE_TABLE
+from mang.cost import D_COST_TABLE
 from mang import graph
 from mang import node as mnode
 from mang import edge as medge
@@ -42,6 +44,8 @@ _EPS = 1e-6
 
 
 class FeedForwardNetwork(object):
+    """Feed-forward network trained using back-propagation."""
+
     def __init__(self, nodes, edges):
         self.nodes = {}
         for name in nodes:
@@ -95,6 +99,7 @@ class FeedForwardNetwork(object):
 
     def _init_training(self, option):
         """Initialize training parameters."""
+
         # load default options
         _option = dict(_DEFAULT_OPTION)
         for key in option:
@@ -126,19 +131,16 @@ class FeedForwardNetwork(object):
 
         # temporary variables used for training
         # activations, and their gradients
-        self._g = {"data": {}, "y": {}, "do": {}, "db": {}, "gb": {},
-                   "dW": {}, "gW": {}, }
+        self._g = {"data": {}, "db": {}, "gb": {}, "dW": {}, "gW": {}, }
 
         # allocate spaces for data and biases
         cm.cublas_init()
         cm.CUDAMatrix.init_random()
+
         batch_size = option["batch_size"]
         for name in self.boundary:
             self._g["data"][name] = \
                 cm.empty((batch_size, self.nodes[name].size))
-        for name in self.nodes:
-            self._g["y"][name] = cm.empty((batch_size, self.nodes[name].size))
-            self._g["do"][name] = cm.empty((batch_size, self.nodes[name].size))
 
         for name in self.nodes:
             self._g["db"][name] = cm.empty(self.nodes[name].b.shape)
@@ -182,12 +184,17 @@ class FeedForwardNetwork(object):
         self.is_training = False
 
     def fit(self, data, **option):
+        """Train network with given data and training options."""
+
         self._init_training(option)
-        for i_epoch in xrange(option["n_epoch"]):
+        stat = []
+        time_train = 0
+        for i_epoch in xrange(self.train_option["n_epoch"]):
+            t_epoch_start = time.time()
             for conn in self.edge_param:
-                self.edge_param[conn]["eps"] *= option["eps_decay"]
+                self.edge_param[conn]["eps"] *= self.train_option["eps_decay"]
             for name in self.node_param:
-                self.node_param[name]["eps"] *= option["eps_decay"]
+                self.node_param[name]["eps"] *= self.train_option["eps_decay"]
 
             if i_epoch < 500:
                 r_epoch = i_epoch / 500.
@@ -210,12 +217,31 @@ class FeedForwardNetwork(object):
                         self.edge_param[conn]["momentum_f"]
 
             self.fit_epoch(data)
+            time_train += time.time() - t_epoch_start
+            n = data[data.keys()[0]].shape[0]
+            n_batch = int(n / self.train_option["batch_size"])
+            stat += [{
+                "epoch": i_epoch,
+                "iter": i_epoch * n_batch,
+                "time": time_train,
+                "train_cost": None,
+                "validation_cost": None,
+                "train_measure": None,
+                "validation_measure": None,
+                "node_param": dict(self.node_param),
+                "edge_param": dict(self.edge_param),
+                }]
 
             if self.train_option["callback"] is not None:
-                self.train_option["callback"](self, i_epoch)
+                self.train_option["callback"](self, stat)
+
+            for name in self.nodes:
+                self.nodes[name].to_gpu(self.train_option["batch_size"])
         self._finish_training()
 
     def fit_epoch(self, data):
+        """Train network for one epoch (single sweep over training data)."""
+
         N = data[data.keys()[0]].shape[0]
         batch_size = self.train_option["batch_size"]
         assert set(self.boundary) == set(data.keys())
@@ -235,15 +261,16 @@ class FeedForwardNetwork(object):
             i2 = i1 + batch_size
             for name in data:
                 if name in self.inputs:
-                    self._g["y"][name].overwrite(data[name][i1:i2])
+                    self.nodes[name].y.overwrite(data[name][i1:i2])
                 elif name in self.outputs:
                     self._g["data"][name].overwrite(data[name][i1:i2])
             self.fit_step()  # mini-batch training
             i1 = i2
         self._check_values()
 
-    # calculate the gradient using BP and update parameters
     def fit_step(self):
+        """Perform one step of backpropagation learning."""
+
         self._feed_forward()
         self._back_propagate()
         self._update()
@@ -260,9 +287,9 @@ class FeedForwardNetwork(object):
                 continue
             if name not in skip_nodes:
                 shape_old = self._g["y"][name].shape
-                self._g["y"][name].reshape((shape_old[0] * shape_old[1], 1))
-                y_max = float(self._g["y"][name].max(0).asarray())
-                self._g["y"][name].reshape(shape_old)
+                self.nodes[name].y.reshape((shape_old[0] * shape_old[1], 1))
+                y_max = float(self.nodes[name].y.max(0).asarray())
+                self.nodes[name].y.reshape(shape_old)
                 if y_max <= 1.:
                     continue
                 self.nodes[name].b.divide(y_max)
@@ -275,59 +302,79 @@ class FeedForwardNetwork(object):
     def _feed_forward(self):
         for name in self.nodes:
             if name not in self.inputs:
-                self._g["y"][name].assign(0)
+                self.nodes[name].y.assign(0)
         for name in self.ff_order:
             if name not in self.inputs:
-                self.nodes[name].up(self._g["y"][name], self._g["y"][name])
+                self.nodes[name].up()
                 # dropout: randomly drop hidden nodes using binary masks
                 dropout = self.node_param[name]["dropout"]
-                if dropout > 0. and name not in self.outputs:
+                if self.is_training and dropout > 0.:
                     self._g["mask"][name].assign(1.)
                     self._g["mask"][name].dropout(dropout)
-                    self._g["y"][name].mult(self._g["mask"][name])
-
+                    self.nodes[name].y.mult(self._g["mask"][name])
             for name2 in self.ff_edges[name]:
                 conn = (name, name2)
-                self.edges[conn].up(self._g["y"][name], self._g["y"][name2])
+                self.edges[conn].up(self.nodes[name].y, self.nodes[name2].y)
 
     def _back_propagate(self):
+        """
+        Back-propagate through network and calculate gradients of
+        objective functions with respect to parameters.
+
+        Todo: reduce the number of branches (how?).
+        """
+
         for name in self.nodes:
             if name not in self.boundary:
-                self._g["do"][name].assign(0)
+                self.nodes[name].dy.assign(0)
             elif name in self.outputs:
-                cost_func = d_cost_table[self.node_param[name]["cost"]]
-                cost_func(self._g["y"][name], self._g["data"][name],
-                          self._g["do"][name])
+                node_type = self.nodes[name].type_name
+                cost_name = self.node_param[name]["cost"]
+
+                # handle special cases for faster calculation
+                if node_type == "softmax" and \
+                        cost_name in ["squared_error", "cross_entropy"]:
+                    self.nodes[name].y.apply_softmax_grad(
+                        self._g["data"][name], self.nodes[name].dy)
+                    self.nodes[name].dy.mult(-1)
+                elif node_type == "logistic" and cost_name == "cross_entropy":
+                    self.nodes[name].y.subtract(
+                        self._g["data"][name], self.nodes[name].dy)
+                else:
+                    cost_func = D_COST_TABLE[cost_name]
+                    cost_func(self.nodes[name].y, self._g["data"][name],
+                              self.nodes[name].dy)
+
         for conn in self.edges:
             if conn not in self.ref_graph:
                 self._g["gW"][conn].assign(0)
-
         for name in self.bp_order:
             if name not in self.inputs:
-                self.nodes[name].down(self._g["y"][name], self._g["do"][name])
-                self.nodes[name].gradient(self._g["do"][name],
-                                          self._g["gb"][name])
+                self.nodes[name].down()
+                self.nodes[name].gradient(self._g["gb"][name])
                 # dropout: randomly drop hidden nodes using binary masks
                 dropout = self.node_param[name]["dropout"]
                 if dropout > 0. and name not in self.outputs:
-                    self._g["do"][name].mult(self._g["mask"][name])
+                    self.nodes[name].dy.mult(self._g["mask"][name])
             for name2 in self.bp_edges[name]:
                 conn = (name2, name)
                 if conn in self.ref_graph:
                     conn2 = self.ref_graph[conn]
                 else:
                     conn2 = conn
-                self.edges[conn].gradient(self._g["y"][name2],
-                                          self._g["do"][name],
-                                          self._g["gW"][conn2])
+                self.edges[conn].gradient(
+                    self.nodes[name2].y, self.nodes[name].dy,
+                    self._g["gW"][conn2])
                 if name2 not in self.inputs:
-                    self.edges[conn].down(self._g["do"][name],
-                                          self._g["do"][name2],
-                                          self._g["y"][name],
-                                          self._g["y"][name2],
-                                          )
+                    self.edges[conn].down(
+                        self.nodes[name].dy, self.nodes[name2].dy,
+                        self.nodes[name].y, self.nodes[name2].y)
 
     def _update(self):
+        """
+        Update parameters using the gradients calculated in _back_propagate.
+        """
+
         for conn in self.edges:
             if conn not in self.ref_graph:
                 momentum = self.edge_param[conn]["momentum"]
@@ -367,43 +414,39 @@ class FeedForwardNetwork(object):
                 assert np.isnan(self.nodes[name].b.asarray()).sum() == 0
 
     def feed_forward(self, data, batch_size=128):
+        for name in data:
+            data[name] = np.array(data[name], dtype=np.float32, order="F")
         N = data[data.keys()[0]].shape[0]
         result = {}
         for name in self.outputs:
             result[name] = np.zeros((N, self.nodes[name].size))
-
+        for name in self.nodes:
+            self.nodes[name].to_gpu(batch_size)
         n_batch = int(np.ceil(N / batch_size))
         for i_batch in xrange(n_batch):
             i1 = i_batch * batch_size
             i2 = min(N, i1 + batch_size)
             n_sample = i2 - i1
-            y = {}
             for name in self.inputs:
-                y[name] = np.array(data[name][i1:i2])
-
-            for name in self.ff_order:
-                if name not in self.inputs:
-                    y[name] = self.nodes[name].up(y[name])
-                    if self.is_training:
-                        dropout = self.node_param[name]["dropout"]
-                        if dropout > 0.:
-                            y[name] *= np.random.rand(*y[name].shape) > dropout
-                for name2 in self.ff_edges[name]:
-                    conn = (name, name2)
-                    if name2 not in y:
-                        y[name2] = np.zeros((n_sample, self.nodes[name2].size))
-                    y[name2] += self.edges[conn].up(y[name])
-                if name in self.outputs:
-                    result[name][i1:i2] = y[name]
-                del y[name]
+                tmp = np.zeros((batch_size, self.nodes[name].size),
+                               dtype=np.float32, order="F")
+                tmp[:n_sample] = data[name][i1:i2]
+                self.nodes[name].y.overwrite(tmp)
+            self._feed_forward()
+            for name in self.outputs:
+                result[name][i1:i2] = self.nodes[name].y.asarray()
+        for name in self.nodes:
+            self.nodes[name].from_gpu()
         return result
 
-    def evaluate(self, data, measures):
+    def evaluate(self, data, measures, n_max=None):
         for key in data:
             data[key] = np.array(data[key], dtype=np.float32, order="F")
+            if n_max is not None:
+                data[key] = data[key][:n_max]
         predicted = self.feed_forward(data)
         result = {}
         for name in measures:
-            measure_func = measure_table[measures[name]]
+            measure_func = MEASURE_TABLE[measures[name]]
             result[name] = measure_func(predicted[name], data[name])
         return result

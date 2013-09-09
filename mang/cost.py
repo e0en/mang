@@ -1,5 +1,5 @@
 import numpy as np
-import cudamat as cm
+import mang.cudamat as cm
 
 # cost functions and -gradient of them
 
@@ -24,13 +24,13 @@ def d_cross_entropy(predicted, target, result):
         (1. - target) * (1. - predicted + 1e-6)
 
 
-cost_table = {
+COST_TABLE = {
     "squared_error": squared_error,
     "cross_entropy": cross_entropy,
     }
 
 
-d_cost_table = {
+D_COST_TABLE = {
     "squared_error": d_squared_error,
     "cross_entropy": d_cross_entropy,
     }

@@ -1,7 +1,7 @@
 import numpy as np
-import cudamat as cm
-import cudamat.cudamat_conv as cm_conv
 
+import mang.cudamat as cm
+from mang.cudamat import cudamat_conv as cm_conv
 from mang.edge.edge import Edge
 
 

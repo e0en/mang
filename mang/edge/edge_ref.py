@@ -1,6 +1,6 @@
 import numpy as np
-import cudamat as cm
 
+import mang.cudamat as cm
 from mang.edge.edge import Edge
 
 

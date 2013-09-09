@@ -1,8 +1,7 @@
-import cudamat as cm
-import cudamat.cudamat_conv as cm_conv
+import mang.cudamat as cm
+from mang.cudamat import cudamat_conv as cm_conv
 
 from .node import Node
-from mang import batch_conv
 
 
 class ResponseNormalizationNode(Node):
@@ -25,26 +24,25 @@ class ResponseNormalizationNode(Node):
         self.tmp.free_device_memory()
         del self.x, self.cov, self.tmp
 
-    def up(self, x, o=None):
-        if o is None:
-            x_cm = cm.CUDAMatrix(x)
-            o_cm = cm.empty(x.shape)
-            tmp_cm = cm.empty(x.shape)
-            cm_conv.ResponseNorm(x_cm, tmp_cm, o_cm, self.shape[-1],
+    def up(self):
+        if self.on_gpu:
+            if self.x.shape != self.y.shape:
+                self.x.free_device_memory()
+                self.cov.free_device_memory()
+                self.tmp.free_device_memory()
+                self.x = cm.empty(self.y.shape)
+                self.cov = cm.empty(self.y.shape)
+                self.tmp = cm.empty(self.y.shape)
+            self.x.assign(self.y)
+            cm_conv.ResponseNorm(self.y, self.cov, self.y,
+                                 self.shape[-1],
                                  self.norm_size, self.add_scale,
                                  self.pow_scale)
-            x_cm.free_device_memory()
-            tmp_cm.free_device_memory()
-            o = o_cm.asarray()
-            o_cm.free_device_memory()
-            return o
         else:
-            cm_conv.ResponseNorm(x, self.cov, o, self.shape[-1],
-                                 self.norm_size, self.add_scale,
-                                 self.pow_scale)
-            self.x.assign(x)
+            raise NotImplementedError
 
-    def down(self, y, do):
-        cm_conv.ResponseNormUndo(do, self.cov, y, self.x, self.tmp,
-                                 self.shape[-1], self.norm_size, 1., 1.)
-        do.assign(self.tmp)
+    def down(self):
+        cm_conv.ResponseNormUndo(self.dy, self.cov, self.y, self.x,
+                                 self.tmp, self.shape[-1],
+                                 self.norm_size, 1., 1.)
+        self.dy.assign(self.tmp)

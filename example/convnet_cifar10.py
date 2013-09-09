@@ -67,7 +67,7 @@ nodes = {
         },
     "conv3": {"type": "relu", "shape": (3, 3, 64), "shared": True},
     "hidden": {"type": "relu", "shape": (64, )},
-    "output": {"type": "relu", "shape": (10, ), },
+    "output": {"type": "softmax", "shape": (10, ), },
     }
 
 edges = {
@@ -105,46 +105,28 @@ nn = FF(nodes, edges)
 
 
 # train the neural network
-def callback_function(nn, i_epoch):
+def callback_function(nn, stat):
+    i_epoch = stat[-1]["epoch"]
     mat = nn.edges["input", "conv1"].W.asarray()
     filter_size = nn.edges["input", "conv1"].filter_size
     n_channel = nn.nodes["input"].shape[-1]
     img = vis.filter_image(mat, shape=(filter_size, filter_size, n_channel))
     img.save("cifar10_Wconv1_%d.png" % i_epoch)
 
-    '''
-    mat = nn.edges["pool1", "conv2"].W.asarray()
-    filter_size = nn.edges["pool1", "conv2"].filter_size
-    n_channel = nn.nodes["pool1"].shape[-1]
-    img = vis.filter_image(mat, shape=(filter_size, filter_size, n_channel))
-    img.save("cifar10_Wconv2_%d.png" % i_epoch)
-    '''
-
-    conn_list = \
-        [("input", "conv1"), ("pool1", "conv2"), ("pool2", "conv3"),
-         ("conv3", "hidden"), ("hidden", "output")]
-
-    for conn in conn_list:
-        mat = nn.edges[conn].W.asarray()
-        print conn, mat.min(), mat.max(), mat.mean()
-
     for name in ["input", "conv1", "pool1", "conv2", "pool2", "conv3"]:
-        mat = nn._g["y"][name].asarray()
+        mat = nn.nodes[name].y.asarray()
         img = vis.filter_image(mat, shape=nn.nodes[name].shape)
         img.save("cifar10_%s_%d.png" % (name, i_epoch))
-        print name, nn._g["y"][name].asarray().mean()
 
     name = "hidden"
-    mat = nn._g["y"][name].asarray()
+    mat = nn.nodes[name].y.asarray()
     img = vis.filter_image(mat, shape=(8, 8))
     img.save("cifar10_%s_%d.png" % (name, i_epoch))
-    print name, nn._g["y"][name].asarray().mean()
 
     name = "output"
-    mat = nn._g["y"][name].asarray()
+    mat = nn.nodes[name].y.asarray()
     img = vis.filter_image(mat, shape=(5, 2))
     img.save("cifar10_%s_%d.png" % (name, i_epoch))
-    print name, nn._g["y"][name].asarray().mean()
 
     print "epoch %d finished. testing..." % i_epoch
     performance = nn.evaluate(cifar10, {"output": "accuracy"})
@@ -182,20 +164,9 @@ option = {
     "node_param": {
         "output": {
             "cost": "squared_error",
+            "measure": "accuracy",
             },
         },
     "callback": callback_function,
     }
 nn.fit(cifar10, **option)
-
-'''
-cifar10_test = {}
-with open("cifar-10/test_batch", "rb") as fp:
-    raw_data = pickle.load(fp)
-    cifar10_test["input"] = raw_data["data"]
-    cifar10_test["output"] = oneofk(raw_data["labels"])
-
-#(cifar10_test["input"], _) = prep.ZCAwhiten(cifar10_test["input"])
-cifar10_test["input"] /= scale
-cifar10_test["input"] = prep.center(cifar10_test["input"], stat)
-'''

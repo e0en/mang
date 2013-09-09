@@ -1,12 +1,15 @@
 from operator import mul
 
 import numpy as np
-import cudamat as cm
+
+import mang.cudamat as cm
 
 
 class Node(object):
     """Node with linear(or identity) activation function."""
+
     def __init__(self, shape, option):
+        self.type_name = "affine"
         self.shape = shape
         self.size = reduce(mul, self.shape)
         if "use_bias" in option:
@@ -21,79 +24,95 @@ class Node(object):
             self.shared = False
         self.on_gpu = False
 
+    def to_gpu(self, n_replica):
+        """Initialize GPU variables."""
+
+        if not self.on_gpu:
+            self.b = cm.CUDAMatrix(self.b.reshape(1, self.b.size))
+            self.y = cm.empty((n_replica, self.size))
+            self.n_replica = n_replica
+            self.on_gpu = True
+        elif n_replica != self.n_replica:
+            self.from_gpu()
+            self.to_gpu(n_replica)
+
+    def from_gpu(self):
+        """Copy GPU variables to CPU and free allocated GPU memory."""
+
+        if self.on_gpu:
+            b = self.b.asarray()
+            self.b.free_device_memory()
+            self.b = b.reshape((b.size, ))
+            self.y.free_device_memory()
+            del self.n_replica
+            self.on_gpu = False
+
     def init_training(self, option):
-        """Initialize temporary GPU variables."""
-        self.b = cm.CUDAMatrix(self.b.reshape(1, self.b.size))
-        self.on_gpu = True
+        """Create temporary GPU variables."""
+
+        self.to_gpu(option["batch_size"])
+        self.dy = cm.empty((self.n_replica, self.size))
 
     def finish_training(self):
-        b = self.b.asarray()
-        self.b.free_device_memory()
-        self.b = b.reshape((b.size, ))
-        self.on_gpu = False
+        """Copy GPU variables to host, and free allocated GPU memory."""
 
-    def _make_shape(self, x, o):
+        self.from_gpu()
+        self.dy.free_device_memory()
+        del self.dy
+
+    def _make_shape(self):
+        """Reshape matrix variables to add shared bias without problem."""
+
         if self.shared:
-            shape_old = x.shape
-            n = x.shape[0] * x.shape[1]
-            shape_new = (n / self.shape[-1], self.shape[-1])
-            if o is None:
-                x = x.reshape(shape_new)
+            n_elem = self.n_replica * self.size
+            shape_new = (n_elem / self.shape[-1], self.shape[-1])
+            if self.on_gpu:
+                self.y = self.y.reshape(shape_new)
             else:
-                x.reshape(shape_new)
-                o.reshape(shape_new)
-            return (x, o, shape_old)
-        else:
-            return (x, o, None)
+                self.y.reshape(shape_new)
 
-    def _recover_shape(self, x, o, shape_old):
+    def _recover_shape(self):
+        """Recover the shape of matrix variables reshaped by _make_shape."""
         if self.shared:
-            if not isinstance(x, cm.CUDAMatrix):
-                x = x.reshape(shape_old)
-                o = o.reshape(shape_old)
-                return o
+            shape_old = (self.n_replica, self.size)
+            if self.on_gpu:
+                self.y.reshape(shape_old)
             else:
-                x.reshape(shape_old)
-                o.reshape(shape_old)
-        elif not isinstance(x, cm.CUDAMatrix):
-            return o
+                self.y = self.y.reshape(shape_old)
 
+    def _add_b(self):
+        """Add bias to input signal."""
 
-    def _add_b(self, x, o):
         if self.use_bias:
-            if o is None:
-                b = self.b.asarray() if self.on_gpu else self.b
-                return x + b
+            self._make_shape()
+            if self.on_gpu:
+                self.y.add_row_vec(self.b)
             else:
-                x.add_row_vec(self.b, o)
-        elif o is None:
-            return x
+                self.y += self.b
+            self._recover_shape()
 
-    def up(self, x, o=None):
-        (x, o, shape_old) = self._make_shape(x, o)
-        if o is None:
-            o = self._add_b(x, o)
-            return self._recover_shape(x, o, shape_old)
-        else:
-            x.add_row_vec(self.b, o)
-            self._recover_shape(x, o, shape_old)
+    def up(self):
+        """Calculate activation from input signals."""
 
-    def down(self, y, dy):
+        self._add_b()
+
+    def down(self):
+        """Calculate error to back-propagate from input error signals."""
+
         pass  # do nothing
 
-    def gradient(self, dy, gb):
-        if not self.use_bias:
-            return
+    def gradient(self, gb):
+        """Calculate the gradient of the bias."""
 
-        n = dy.shape[0]
-        if self.shared:
-            shape_old = dy.shape
-            n = dy.shape[0] * dy.shape[1]
-            shape_new = (n / self.shape[-1], self.shape[-1])
-            dy.reshape(shape_new)
+        if self.use_bias:
+            if self.shared:
+                shape_old = self.dy.shape
+                n_elem = self.dy.shape[0] * self.dy.shape[1]
+                shape_new = (n_elem / self.shape[-1], self.shape[-1])
+                self.dy.reshape(shape_new)
 
-        dy.sum(0, gb)
-        gb.divide(n)
+            self.dy.sum(0, gb)  # should be changed to the sum over axis 1
+            gb.divide(self.n_replica)
 
-        if self.shared:
-            dy.reshape(shape_old)
+            if self.shared:
+                self.dy.reshape(shape_old)

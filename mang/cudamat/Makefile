@@ -8,7 +8,7 @@ libcudamat.so: cudamat.cu cudamat_kernels.cu cudamat.cuh cudamat_kernels.cuh
 	  -gencode=arch=compute_20,code=sm_20 \
 		-gencode=arch=compute_30,code=sm_30 \
 		--compiler-options '-fPIC' -o libcudamat.so \
-		--shared cudamat.cu cudamat_kernels.cu -lcublas -lcudart -L$(CUDA_LIB)
+		--shared cudamat.cu cudamat_kernels.cu -lcublas -lcudart
 
 libcudamat_conv.so: cudamat_conv.cu cudamat_conv_kernels.cu cudamat_conv.cuh cudamat.cuh cudamat_conv_kernels.cuh
 	nvcc -O3 \
@@ -17,7 +17,7 @@ libcudamat_conv.so: cudamat_conv.cu cudamat_conv_kernels.cu cudamat_conv.cuh cud
 	  -gencode=arch=compute_20,code=sm_20 \
 		-gencode=arch=compute_30,code=sm_30 \
 		--compiler-options '-fPIC' -o libcudamat_conv.so \
-		--shared cudamat_conv.cu cudamat_conv_kernels.cu -lcublas -lcudart -L$(CUDA_LIB)
+		--shared cudamat_conv.cu cudamat_conv_kernels.cu -lcublas -lcudart
 	
 clean:
 	rm -rf *.so

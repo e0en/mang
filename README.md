@@ -5,10 +5,9 @@ Mang is a neural network library for python 2.x.
 It requires the packages below:
 
 * numpy (>= 1.6.2)
-* easydict (>= 1.4)
-* cudamat and gnumpy (https://code.google.com/p/cudamat/)
+* cudamat (https://code.google.com/p/cudamat/)
 
-Please note that Mang uses a very slightly customized version of gnumpy.
+Please note that Mang uses a very slightly customized version of cudamat.
 
 A Simple Example
 ----------------
@@ -30,31 +29,22 @@ so that one does not need to explicitely specify input and output nodes.
         }
     nn = FeedForwardNetwork(nodes, edges)
 
-Training a network is also easy. Training data must be given as a dictionary of numpy arrays, whose keys corresponds to node names of the network.
+Training a network is also easy. Training data must be given as a dictionary
+of numpy arrays, whose keys corresponds to node names of the network.
 
     data = {
         "input": mnist["X"],
         "output": mnist["label"],
         }
-    cost = {"output": "squared_error", }
     nn.fit(data, n_epoch=100, cost=cost)
 
-Trained networks can be tested by calculating their activations or directly evaluating it on test datasets.
+Trained networks can be tested by calculating their activations or directly
+evaluating it on test datasets.
 
     data_test = {"input": mnist["X_test"],}
-    activations = nn.feed_forward(data_test)
+    result = nn.feed_forward(data_test)
+    predicted_labels = output["output"]
     
     data_test = {"input": mnist["X_test"], "output": mnist["label_test"],}
     measures = {"output": "accuracy", }
     performance = nn.evaluate(data_test, measure=measures)
-
-One can visualize learned weights as images.
-
-    image = nn.edges["input", "hidden"].show()
-    image.save("input-hidden.png")
-
-Todo
-----
-
-* Add documentation using Sphinx.
-* Remove the dependency on cudamat.

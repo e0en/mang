@@ -1339,24 +1339,6 @@ class CUDAMatrix(object):
             raise generate_exception(err_code)
         return target
 
-    def apply_bernoulli_cross_entropy_grad(self, truth, target=None):
-        """
-        Apply the derivative of cross-entropy function defined over bernoulli
-        distribution.
-        """
-
-        if not target:
-            target = self
-        assert target.shape == self.shape
-        if isinstance(truth, CUDAMatrix):
-            err_code = _cudamat.apply_bernoulli_cross_entropy_grad(
-                self.p_mat, truth.p_mat, target.p_mat)
-        else:
-            raise ValueError("truth values must be of type CUDAMatrix.")
-        if err_code:
-            raise generate_exception(err_code)
-        return target
-
     def apply_logistic_deriv(self, val, target=None):
         """
         Apply logistic derivative, where val is the logistic unit activations.

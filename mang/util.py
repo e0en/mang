@@ -1,20 +1,24 @@
 import cPickle as pickle
 import gzip
 import time
-import os
 
 import numpy as np
+import msgpack
+import msgpack_numpy as m
+m.patch()
 
 
-_time = None
+_TIME = None
+
 
 def tic():
-    global _time
-    _time = time.time()
+    global _TIME
+    _TIME = time.time()
+
 
 def toc():
-    global _time
-    return time.time() - _time
+    return time.time() - _TIME
+
 
 def loadDefault(given, default):
     result = dict(default)
@@ -22,37 +26,51 @@ def loadDefault(given, default):
         result[key] = given[key]
     return result
 
-def save_pickle(data, filename):
-    # fp = gzip.open(filename, 'wb')
-    fp = open(filename, 'wb')
-    pickle.dump(data, fp)
-    fp.close()
+
+def save_pickle(filename, data):
+    with open(filename, 'wb') as fp:
+        pickle.dump(data, fp)
+        fp.close()
+
 
 def load_pickle(filename):
-    # fp = gzip.open(filename, 'rb')
-    fp = open(filename, 'rb')
-    data = pickle.load(fp)
-    fp.close()
+    with open(filename, 'rb') as fp:
+        data = pickle.load(fp)
     return data
+
 
 # use it to save models
-def save_pkl_gz(data, filename):
-    fp = gzip.open(filename, 'wb')
-    pickle.dump(data, fp)
-    fp.close()
+def save_pkl_gz(filename, data):
+    with gzip.open(filename, 'wb') as fp:
+        pickle.dump(data, fp)
+        fp.close()
+
 
 def load_pkl_gz(filename):
-    fp = gzip.open(filename, 'rb')
-    data = pickle.load(fp)
+    with gzip.open(filename, 'rb') as fp:
+        data = pickle.load(fp)
     return data
 
+
 # use it to save data
-def save_npz(data, filename):
+def save_npz(filename, data):
     if type(data) == dict:
         np.savez(filename, **data)
     else:
-        np.savez(filename, data)
+        np.save(filename, data)
+
 
 def load_npz(filename):
     data = np.load(filename)
     return data
+
+
+def save_msgpack(filename, data):
+    with open(filename, "wb") as fp:
+        fp.write(msgpack.packb(data))
+
+
+def load_msgpack(filename):
+    with open(filename, "rb") as fp:
+        data = msgpack.unpackb(fp.read())
+        return data

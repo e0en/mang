@@ -36,9 +36,11 @@ edges = {
 nn = FF(nodes, edges)
 
 
-def callback_function(nn, i_epoch, data):
+def callback_function(nn, stat, data):
+    i_epoch = stat[-1]["epoch"]
+
+    img = vis.matrix_image(nn.nodes["output"].y.asarray(), shape=(28, 28))
     print i_epoch, nn.evaluate(data, {"output": "rmse"})
-    img = vis.matrix_image(nn._g["y"]["output"].asarray(), shape=(28, 28))
     img.save("%d.png" % i_epoch)
 
 data = {
@@ -47,10 +49,13 @@ data = {
     }
 
 option = {
-    'n_epoch': 20,
+    'n_epoch': 2,
     'eps': 0.1,
     'cost': {"output": "squared_error"},
     "callback": lambda x, y: callback_function(x, y, data),
     }
 
 nn.fit(data, **option)
+
+nn.save("mnist.msgpack")
+nn_new = FF.load("mnist.msgpack")

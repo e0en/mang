@@ -3,6 +3,10 @@ from . import functions as F
 
 
 class LogisticNode(Node):
+    """Node with logistic activation function."""
+
+    _name = "logistic"
+
     def up(self):
         self._add_b()
         if self.on_gpu:

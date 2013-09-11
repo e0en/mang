@@ -4,6 +4,10 @@ from . import functions as F
 
 
 class TanhNode(Node):
+    "Node with hyperbolic tangent activation function."""
+
+    _name = "tanh"
+
     def up(self):
         self._add_b()
 

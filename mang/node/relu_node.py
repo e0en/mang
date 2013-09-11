@@ -2,6 +2,9 @@ from .node import Node
 
 
 class ReLUNode(Node):
+    """Node with rectified linear activation function."""
+    _name = "relu"
+
     def __init__(self, dim, option):
         Node.__init__(self, dim, option)
 

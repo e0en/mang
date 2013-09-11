@@ -8,44 +8,73 @@ from mang.edge.edge import Edge
 
 
 class MaxPoolingEdge(Edge):
-    def __init__(self, shape_in, shape_out, option={}):
+
+    _name = "max_pool"
+
+    def __init__(self, nodes, conn, option={}):
+        self.conn = conn
+        (node1, node2) = (nodes[conn[0]], nodes[conn[1]])
+
         self.ratio = option["ratio"]
         self.stride = option["stride"] if "stride" in option else self.ratio
-        size_in = reduce(mul, shape_in)
-        size_out = reduce(mul, shape_out)
+        self.scale = option["scale"] if "scale" in option else 1.
+
+        size_in = reduce(mul, node1.shape)
+        size_out = reduce(mul, node2.shape)
         self.shape = (size_in, size_out)
-        self.shape_in = shape_in
-        self.shape_out = shape_out
-        self.n_channel = 1 if len(shape_in) == 2 else shape_in[-1]
-        assert self.n_channel == shape_out[-1]
+        self.n_channel = 1 if len(node1.shape) == 2 else node1.shape[-1]
+        assert self.n_channel == node2.shape[-1]
+
         self.on_gpu = False
         self.W = np.ones((1, 1))  # dummy weights for consistent interface
+        self.o = None
+        self.used_gpu_memory = 0
 
-    def init_training(self, option):
-        Edge.init_training(self, option)
-        self.W.assign(1.)
-        self.scale = 1.
-        self.o = cm.empty((option["batch_size"], self.shape[1]))
+    def to_gpu(self, batch_size):
+        Edge.to_gpu(self, batch_size)
+        self.o = cm.empty((batch_size, self.shape[1]))
+        self.used_gpu_memory += self.o.shape[0] * self.o.shape[1] * 4
 
-    def finish_training(self):
-        Edge.finish_training(self)
+    def from_gpu(self):
+        Edge.from_gpu(self)
         self.o.free_device_memory()
+        self.used_gpu_memory -= self.o.shape[0] * self.o.shape[1] * 4
         del self.o
 
-    def up(self, x, o):
-        if self.o.shape != o.shape:
+    def init_training(self, batch_size):
+        self.to_gpu(batch_size)
+        self.W.assign(1.)
+        self.scale = 1.
+
+    def finish_training(self):
+        self.from_gpu()
+
+    def up(self, nodes):
+        (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
+        if self.o.shape != node2.y.shape:
             self.o.free_device_memory()
-            self.o = cm.empty((x.shape[0], self.shape[1]))
-        cm_conv.MaxPool(x, self.o, self.n_channel, self.ratio, 0,
-                        self.stride, self.shape_out[0])
-        o.assign(self.o)
-        o.mult(self.scale)
+            self.o = cm.empty((node1.y.shape[0], self.shape[1]))
+        cm_conv.MaxPool(node1.y, self.o, self.n_channel, self.ratio, 0,
+                        self.stride, node2.shape[0])
+        node2.y.assign(self.o)
+        node2.y.mult(self.scale)
 
-    def down(self, do, dx, o, x):
-        cm_conv.MaxPoolUndo(x, dx, do, self.o, self.ratio, 0, self.stride,
-                            self.shape_out[0])
-        dx.mult(self.scale)
+    def down(self, nodes):
+        (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
+        cm_conv.MaxPoolUndo(
+            node1.y, node1.dy, node2.dy, self.o, self.ratio, 0, self.stride,
+            node2.shape[0])
+        node2.dy.mult(self.scale)
 
-    def gradient(self, x, do, gW):
+    def gradient(self, nodes, gW):
         gW.assign(0)
         self.scale = float(self.W.asarray()[0])
+
+    def to_dict(self):
+        """Convert self to a dict."""
+
+        result = Edge.to_dict(self)
+        result["ratio"] = self.ratio
+        result["stride"] = self.stride
+        result["scale"] = self.scale
+        return result

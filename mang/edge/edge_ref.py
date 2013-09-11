@@ -1,11 +1,9 @@
-import numpy as np
-
-import mang.cudamat as cm
-from mang.edge.edge import Edge
-
-
 class EdgeRef(object):
-    def __init__(self, original, option):
+
+    _name = "ref"
+
+    def __init__(self, conn, original, option):
+        self.conn = conn
         self.original = original
         self.transpose = option["transpose"]
 
@@ -15,37 +13,35 @@ class EdgeRef(object):
     def finish_training(self):
         pass
 
-    def up(self, x, o=None):
-        if o is None:
-            if self.original.on_gpu:
-                W = self.original.W.asarray()
-            else:
-                W = self.original.W
-            W = W.T if self.transpose else W
-            return np.dot(x, W)
-        else:
-            if self.transpose:
-                o.add_dot(x, self.original.W.T)
-            else:
-                o.add_dot(x, self.original.W)
-
-    def down(self, do, dx, o, x):
+    def up(self, nodes):
+        (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
         if self.transpose:
-            dx.add_dot(do, self.original.W)
+            node2.y.add_dot(node1.y, self.original.W.T)
         else:
-            dx.add_dot(do, self.original.W.T)
+            node2.y.add_dot(node1.y, self.original.W)
 
-    def gradient(self, x, do, gW):
+    def down(self, nodes):
+        (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
         if self.transpose:
-            gW.add_dot(do.T, x, 1. / x.shape[0])
+            node1.dy.add_dot(node2.dy, self.original.W)
         else:
-            gW.add_dot(x.T, do, 1. / x.shape[0])
+            node1.dy.add_dot(node2.dy, self.original.W.T)
 
-    def materialize(self):
+    def gradient(self, nodes, gW):
+        (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
         if self.transpose:
-            new_edge = Edge(self.original.shape_out, self.original.shape_in)
-            new_edge.W = np.array(self.original.W)
+            gW.add_dot(node2.dy.T, node1.y, 1. / node1.y.shape[0])
         else:
-            new_edge = Edge(self.original.shape_in, self.original.shape_out)
-            new_edge.W = np.array(self.original.W.T)
-        return new_edge
+            gW.add_dot(node1.y.T, node2.dy, 1. / node1.y.shape[0])
+
+    def to_dict(self):
+        """Convert self to a dict."""
+
+        result = {"transpose": self.transpose, "conn": self.conn, }
+        return result
+
+    @classmethod
+    def from_dict(cls, original, data):
+        """Create an edge reference object from data."""
+
+        return cls(data["conn"], original, data)

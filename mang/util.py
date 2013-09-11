@@ -3,6 +3,7 @@ import gzip
 import time
 
 import numpy as np
+import scipy.io as sio
 import msgpack
 import msgpack_numpy as m
 m.patch()
@@ -74,3 +75,20 @@ def load_msgpack(filename):
     with open(filename, "rb") as fp:
         data = msgpack.unpackb(fp.read())
         return data
+
+
+def load_file(filename):
+    ext_table = {
+        ".pkl": load_pickle,
+        ".pkl.gz": load_pkl_gz,
+        ".npy": np.load,
+        ".npz": np.load,
+        ".msgpack": load_msgpack,
+        ".mat": sio.loadmat,
+        }
+
+    for ext in ext_table:
+        if filename.endswith(ext):
+            return ext_table[ext](filename)
+
+    raise ValueError("Unknown file format")

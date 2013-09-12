@@ -46,9 +46,6 @@ class ResponseNormalizationNode(Node):
     def up(self):
         if self.x is None:
             self._make_tmp()
-        elif self.x.shape != self.y.shape:
-            self._free_tmp()
-            self._make_tmp()
         self.x.assign(self.y)
         cm_conv.ResponseNorm(
             self.y, self.cov, self.y, self.shape[-1], self.norm_size,

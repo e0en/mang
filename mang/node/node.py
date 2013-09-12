@@ -46,9 +46,6 @@ class Node(object):
 
             self.batch_size = batch_size
             self.on_gpu = True
-        elif batch_size != self.batch_size:
-            self.from_gpu()
-            self.to_gpu(batch_size)
 
     def from_gpu(self):
         """Copy GPU variables to CPU and free allocated GPU memory."""

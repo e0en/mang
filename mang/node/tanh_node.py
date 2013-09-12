@@ -1,6 +1,5 @@
 import mang.cudamat as cm
 from .node import Node
-from . import functions as F
 
 
 class TanhNode(Node):
@@ -10,11 +9,7 @@ class TanhNode(Node):
 
     def up(self):
         self._add_b()
-
-        if self.on_gpu:
-            cm.tanh(self.y)
-        else:
-            self.y = F.tanh(self.y)
+        cm.tanh(self.y)
 
     def down(self):
         self.dy.apply_tanh_deriv(self.y)

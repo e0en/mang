@@ -23,7 +23,7 @@ CUDAMAT_FILES = [
 
 setup(
     name="mang",
-    version="0.1",
+    version="0.1.1",
     description="Another neural network library for python based on cudamat",
 
     install_requires=["numpy>=1.6.1", "msgpack-python", "msgpack_numpy"],

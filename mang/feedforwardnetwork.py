@@ -443,9 +443,10 @@ class FeedForwardNetwork(object):
             result[name] = np.zeros((n_sample, self.nodes[name].size))
 
         # initialize GPU variables of nodes and edges
+        if self.is_training:
+            batch_size = self.train_option["batch_size"]
         for name in self.nodes:
             self.nodes[name].to_gpu(batch_size)
-
         for conn in self.real_edges:
             self.edges[conn].to_gpu(batch_size)
 

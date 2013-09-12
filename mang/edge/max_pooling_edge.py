@@ -31,15 +31,17 @@ class MaxPoolingEdge(Edge):
         self.used_gpu_memory = 0
 
     def to_gpu(self, batch_size):
+        if not self.on_gpu:
+            self.o = cm.empty((batch_size, self.shape[1]))
+            self.used_gpu_memory += self.o.shape[0] * self.o.shape[1] * 4
         Edge.to_gpu(self, batch_size)
-        self.o = cm.empty((batch_size, self.shape[1]))
-        self.used_gpu_memory += self.o.shape[0] * self.o.shape[1] * 4
 
     def from_gpu(self):
+        if self.on_gpu:
+            self.o.free_device_memory()
+            self.used_gpu_memory -= self.o.shape[0] * self.o.shape[1] * 4
+            del self.o
         Edge.from_gpu(self)
-        self.o.free_device_memory()
-        self.used_gpu_memory -= self.o.shape[0] * self.o.shape[1] * 4
-        del self.o
 
     def init_training(self, batch_size):
         self.to_gpu(batch_size)
@@ -51,9 +53,6 @@ class MaxPoolingEdge(Edge):
 
     def up(self, nodes):
         (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
-        if self.o.shape != node2.y.shape:
-            self.o.free_device_memory()
-            self.o = cm.empty((node1.y.shape[0], self.shape[1]))
         cm_conv.MaxPool(node1.y, self.o, self.n_channel, self.ratio, 0,
                         self.stride, node2.shape[0])
         node2.y.assign(self.o)

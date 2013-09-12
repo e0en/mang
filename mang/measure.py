@@ -45,7 +45,7 @@ def precision(predicted, target, k):
     predicted_list = [set(x.argsort()[:k]) for x in -predicted]
     divisor = [max(min(k, len(x)), 1) for x in target_list]
     n_correct = [len(target_list[i] & predicted_list[i]) for i in xrange(N)]
-    return np.mean([1.*n_correct[i]/divisor[i] for i in xrange(N)])
+    return np.mean([1. * n_correct[i] / divisor[i] for i in xrange(N)])
 
 
 def recall(predicted, target, k):
@@ -54,7 +54,22 @@ def recall(predicted, target, k):
     predicted_list = [set(x.argsort()[:k]) for x in -predicted]
     divisor = [max(len(x), 1) for x in target_list]
     n_correct = [len(target_list[i] & predicted_list[i]) for i in xrange(N)]
-    return np.mean([1.*n_correct[i]/divisor[i] for i in xrange(N)])
+    return np.mean([1. * n_correct[i] / divisor[i] for i in xrange(N)])
+
+
+def f1_score(predicted, target, k):
+    N = predicted.shape[0]
+    target_list = [set(x.nonzero()[0]) for x in target]
+    predicted_list = [set(x.argsort()[:k]) for x in -predicted]
+    n_correct = [len(target_list[i] & predicted_list[i]) for i in xrange(N)]
+
+    divisor = [max(min(k, len(x)), 1) for x in target_list]
+    p_list = np.array([1. * n_correct[i] / divisor[i] for i in xrange(N)])
+
+    divisor = [max(len(x), 1) for x in target_list]
+    r_list = np.array([1. * n_correct[i] / divisor[i] for i in xrange(N)])
+
+    return 2 * p_list * r_list / (p_list + r_list)
 
 
 MEASURE_TABLE = {
@@ -66,4 +81,5 @@ MEASURE_TABLE = {
     "one_error": one_error,
     "precision": precision,
     "recall": recall,
+    "f1_score": f1_score,
     }

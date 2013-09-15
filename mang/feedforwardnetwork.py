@@ -5,6 +5,7 @@ import mang.cudamat as cm
 
 from mang.measure import MEASURE_TABLE
 from mang.cost import D_COST_TABLE
+from mang.noise import NOISE_TABLE
 from mang import graph
 from mang import node as mnode
 from mang import edge as medge
@@ -293,6 +294,14 @@ class FeedForwardNetwork(object):
     def fit_step(self):
         """Perform one step of backpropagation learning."""
 
+        # add noise to training data
+        for name in self.inputs:
+            if self.node_param[name]['noise'] is not None:
+                noise_name = self.node_param[name]['noise']
+                noise_param = self.node_param[name]['noise_param']
+                noise_func = NOISE_TABLE[noise_name]
+                noise_func(self.nodes[name].y, noise_param)
+
         self._feed_forward()
         self._back_propagate()
         self._update()
@@ -432,14 +441,16 @@ class FeedForwardNetwork(object):
                 assert np.isinf(self.nodes[name].b.asarray()).sum() == 0
                 assert np.isnan(self.nodes[name].b.asarray()).sum() == 0
 
-    def feed_forward(self, data, batch_size=128):
+    def feed_forward(self, data, batch_size=128, nodes=None):
         """Calculate output node activations from input data."""
 
         for name in data:
             data[name] = np.array(data[name], dtype=np.float32, order="F")
         n_sample = data[data.keys()[0]].shape[0]
         result = {}
-        for name in self.outputs:
+        if nodes is None:
+            nodes = self.outputs
+        for name in nodes:
             result[name] = np.zeros((n_sample, self.nodes[name].size))
 
         # initialize GPU variables of nodes and edges
@@ -461,7 +472,7 @@ class FeedForwardNetwork(object):
                 tmp[:real_batch_size] = data[name][i_start:i_end]
                 self.nodes[name].y.overwrite(tmp)
             self._feed_forward()
-            for name in self.outputs:
+            for name in result:
                 result[name][i_start:i_end] = self.nodes[name].y.asarray()
 
         for name in self.nodes:
@@ -471,7 +482,7 @@ class FeedForwardNetwork(object):
 
         return result
 
-    def evaluate(self, data, measures, n_max=None):
+    def evaluate(self, data, measures, option={}, n_max=None):
         """Evaluate performance of network using data and measure functions."""
 
         for key in data:
@@ -482,7 +493,7 @@ class FeedForwardNetwork(object):
         result = {}
         for name in measures:
             measure_func = MEASURE_TABLE[measures[name]]
-            result[name] = measure_func(predicted[name], data[name])
+            result[name] = measure_func(predicted[name], data[name], **option)
         return result
 
     def save(self, filename):

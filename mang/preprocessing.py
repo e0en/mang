@@ -7,7 +7,7 @@ def center(X, mu=None):
     else:
         return X - mu
 
-def uncenter(X_c, mu):
+def un_center(X_c, mu):
     return X_c + mu
 
 def whiten(X, stat=None):
@@ -25,11 +25,11 @@ def whiten(X, stat=None):
         X_c = (X_c/std)
         return X_c
 
-def unwhiten(X_c, stat):
+def un_whiten(X_c, stat):
     (mu, std) = stat
-    return uncenter(X_c*std, mu)
+    return un_center(X_c*std, mu)
 
-def PCAwhiten(X, stat=None, ratio=0.99, dim=None):
+def pca_whiten(X, stat=None, ratio=0.99, dim=None):
     if stat == None:
         (X_c, mu) = center(X)
         (val, vec) = np.linalg.eigh(np.cov(X_c.T))
@@ -69,12 +69,12 @@ def PCAwhiten(X, stat=None, ratio=0.99, dim=None):
         X_c = np.dot(X_c, W)
         return X_c
 
-def unPCAwhiten(X_c, stat):
+def un_pca_whiten(X_c, stat):
     (mu, W, Winv) = stat
-    X = uncenter(np.dot(X_c, Winv), mu)
+    X = un_center(np.dot(X_c, Winv), mu)
     return X
 
-def ZCAwhiten(X, stat=None, regularizer=0.0001):
+def zca_whiten(X, stat=None, regularizer=0.0001):
     if stat == None:
         N = X.shape[0]
         X_c = (X.T - X.mean(1)).T
@@ -94,5 +94,5 @@ def ZCAwhiten(X, stat=None, regularizer=0.0001):
         X_c = np.clip(X_c, -4, 4)
         return X_c
 
-def unZCAwhiten(X_c, stat):
+def un_zca_whiten(X_c, stat):
     raise NotImplementedError

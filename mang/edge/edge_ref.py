@@ -1,3 +1,6 @@
+from mang.edge import Edge
+
+
 class EdgeRef(object):
 
     _name = "ref"
@@ -33,6 +36,10 @@ class EdgeRef(object):
             gW.add_dot(node2.dy.T, node1.y, 1. / node1.y.shape[0])
         else:
             gW.add_dot(node1.y.T, node2.dy, 1. / node1.y.shape[0])
+
+    def materialize(self, nodes):
+        W = self.original.W if self.transpose else self.original.W.T
+        return Edge(nodes, self.conn, W)
 
     def to_dict(self):
         """Convert self to a dict."""

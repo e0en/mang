@@ -182,6 +182,12 @@ class FeedForwardNetwork(object):
         for conn in self.real_edges:
             self.edges[conn].finish_training()
 
+        # un-link the tied edges.
+        for conn in self.ref_edges:
+            self.edges[conn] = self.edges[conn].materialize(self.nodes)
+        self.ref_edges = {}
+        self.real_edges = set(self.edges.keys())
+
         for name in self.nodes:
             self.nodes[name].finish_training()
             if self.node_param[name]["dropout"] > 0.:

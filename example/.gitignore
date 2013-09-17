@@ -37,3 +37,8 @@ nosetests.xml
 # data files
 *.npz
 *.png
+*.msgpack
+
+# directories
+results/
+cifar-10/

@@ -16,7 +16,7 @@ void filterActs(cudamat* images, cudamat* filters, cudamat* targets,
           int numModulesX, int paddingStart, int moduleStride,
           int numImgColors, int numGroups,
           float scaleTargets, float scaleOutput, bool conv) {
-  int numFilterColors = numImgColors / numGroups;   
+  int numFilterColors = numImgColors / numGroups;
   int numFilters = filters->size[0];
   int numModules = numModulesX * numModulesX;
   int numImages = images->size[0];

@@ -27,6 +27,7 @@ class Node(object):
                 self.shared = False
         else:
             self.b = None
+            self.shared = False
 
         if "b" in option:
             self.b = np.array(option["b"], dtype=np.float32, order="F")

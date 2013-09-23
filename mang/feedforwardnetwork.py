@@ -131,8 +131,9 @@ class FeedForwardNetwork(object):
                 for key in self.node_param[name]:
                     param[key] = self.node_param[name][key]
             self.node_param[name] = dict(param)
-            self.nodes[name].b = \
-                param['init_b'] * np.ones(self.nodes[name].b.shape)
+            if self.nodes[name].use_bias:
+                self.nodes[name].b = \
+                    param['init_b'] * np.ones(self.nodes[name].b.shape)
             self.nodes[name].init_training(option)
             used_gpu_memory += self.nodes[name].used_gpu_memory
 
@@ -146,16 +147,19 @@ class FeedForwardNetwork(object):
 
         batch_size = option['batch_size']
         for name in self.boundary:
-            self._g['data'][name] = \
-                cm.empty((batch_size, self.nodes[name].size))
-            used_gpu_memory += 4 * batch_size * self.nodes[name].size
+            data_from = self.node_param[name]['data_from']
+            if data_from is None:
+                self._g['data'][name] = \
+                    cm.empty((batch_size, self.nodes[name].size))
+                used_gpu_memory += 4 * batch_size * self.nodes[name].size
 
         for name in self.nodes:
-            self._g['db'][name] = cm.empty(self.nodes[name].b.shape)
-            self._g['gb'][name] = cm.empty(self.nodes[name].b.shape)
-            self._g['db'][name].assign(0)
-            self._g['gb'][name].assign(0)
-            used_gpu_memory += 8 * self.nodes[name].b.shape[1]
+            if self.nodes[name].use_bias:
+                self._g['db'][name] = cm.empty(self.nodes[name].b.shape)
+                self._g['gb'][name] = cm.empty(self.nodes[name].b.shape)
+                self._g['db'][name].assign(0)
+                self._g['gb'][name].assign(0)
+                used_gpu_memory += 8 * self.nodes[name].b.shape[1]
 
         for conn in self.real_edges:
             self._g['dW'][conn] = cm.empty(self.edges[conn].W.shape)
@@ -312,7 +316,7 @@ class FeedForwardNetwork(object):
         self._back_propagate()
         self._update()
 
-        """
+        '''
         # renormalize ReLU weights so that their maximum output is 1
         skip_nodes = set(self.boundary)
         for conn in self.ref_edges:
@@ -334,7 +338,7 @@ class FeedForwardNetwork(object):
                     self.edges[name2, name].W.divide(y_max)
                 for name2 in self.ff_edges[name]:
                     self.edges[name, name2].W.mult(y_max)
-        """
+        '''
 
     def _feed_forward(self):
         """
@@ -359,6 +363,7 @@ class FeedForwardNetwork(object):
                 conn = (name, name2)
                 self.edges[conn].up(self.nodes)
 
+        '''
         for name in self.nodes:
             data_from = self.node_param[name]['data_from']
             if data_from is not None:
@@ -366,6 +371,7 @@ class FeedForwardNetwork(object):
                     self._g["data"][name].assign(self._g['data'][data_from])
                 else:
                     self._g["data"][name].assign(self.nodes[data_from].y)
+        '''
 
     def _back_propagate(self):
         """
@@ -377,32 +383,46 @@ class FeedForwardNetwork(object):
 
         for name in self.nodes:
             self.nodes[name].dy.assign(0)
-        for name in self.outputs:
-            cost_name = self.node_param[name]['cost']
 
-            # handle special cases for faster calculation
+        for name in self.outputs:
+            # assign ground-truth values
+            data_from = self.node_param[name]['data_from']
+            if data_from is not None:
+                if data_from in self._g['data']:
+                    truth = self._g['data'][data_from]
+                else:
+                    truth = self.nodes[data_from].y
+            else:
+                truth = self._g['data'][name]
+
+            # apply cost functions to output nodes
+            cost_name = self.node_param[name]['cost']
             if cost_name is None:
+                # zero error for non-data output nodes.
+                if self.node_param[name]['sparsity'] > 0:
+                    lamb = -self.node_param[name]['sparsity']
+                    self.nodes[name].dy.add_mult_sign(self.nodes[name].y, lamb)
                 self.nodes[name].down()
+            # handle special cases for faster calculation
             elif isinstance(self.nodes[name], mnode.SoftmaxNode) or \
                     (isinstance(self.nodes[name], mnode.LogisticNode) and
                         cost_name == 'cross_entropy'):
-                self._g['data'][name].subtract(
-                    self.nodes[name].y, self.nodes[name].dy)
+                truth.subtract(self.nodes[name].y, self.nodes[name].dy)
             else:
                 cost_func = D_COST_TABLE[cost_name]
-                cost_func(self.nodes[name].y, self._g['data'][name],
-                          self.nodes[name].dy)
+                cost_func(self.nodes[name].y, truth, self.nodes[name].dy)
                 self.nodes[name].down()
 
         for conn in self.real_edges:
             self._g['gW'][conn].assign(0)
         for name in self.bp_order:
-            if self.node_param[name]['sparsity'] > 0:
-                lamb = self.node_param[name]['sparsity']
-                self.nodes[name].dy.add_mult_sign(self.nodes[name].y, -lamb)
             if name not in self.outputs:
+                if self.node_param[name]['sparsity'] > 0:
+                    lamb = -self.node_param[name]['sparsity']
+                    self.nodes[name].dy.add_mult_sign(self.nodes[name].y, lamb)
                 self.nodes[name].down()
-            self.nodes[name].gradient(self._g['gb'][name])
+            if self.nodes[name].use_bias:
+                self.nodes[name].gradient(self._g['gb'][name])
             # dropout: randomly drop hidden nodes using binary masks
             dropout = self.node_param[name]['dropout']
             if dropout > 0. and name not in self.outputs:
@@ -443,7 +463,7 @@ class FeedForwardNetwork(object):
                     self.edges[conn].W.norm_limit(w_norm_limit, 0)
 
         for name in self.nodes:
-            if name not in self.inputs:
+            if name not in self.inputs and self.nodes[name].use_bias:
                 momentum = self.node_param[name]['momentum']
                 eps = (1. - momentum) * self.node_param[name]['eps']
                 self._g['db'][name].mult(momentum)

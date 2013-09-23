@@ -15,7 +15,8 @@ class Node(object):
 
         if "use_bias" in option:
             self.use_bias = option["use_bias"]
-        self.use_bias = True
+        else:
+            self.use_bias = True
 
         if self.use_bias:
             if "shared" in option and option["shared"]:

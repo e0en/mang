@@ -15,6 +15,9 @@ class DeconvolutionalEdge(Edge):
         assert node1.shape[0] == node1.shape[1]
         assert node2.shape[0] == node2.shape[1]
 
+        self.dim1 = node1.size
+        self.dim2 = node2.size
+
         # user-defined properties
         self.filter_size = option["filter_size"]
         self.stride = option["stride"] if "stride" in option else 1
@@ -43,11 +46,15 @@ class DeconvolutionalEdge(Edge):
         Edge.init_training(self, batch_size)
         self.W_tmp = cm.empty(self.W.shape)
         self.used_gpu_memory += 4 * self.W.shape[0] * self.W.shape[1]
+        self.dy = cm.empty((batch_size, self.dim1))
+        self.used_gpu_memory += 4 * batch_size * self.dim1
 
     def finish_training(self):
         Edge.finish_training(self)
         self.W_tmp.free_device_memory()
         self.used_gpu_memory -= 4 * self.W.shape[0] * self.W.shape[1]
+        self.dy.free_device_memory()
+        self.used_gpu_memory -= 4 * self.dy.shape[0] * self.dy.shape[1]
         del self.W_tmp
 
     def up(self, nodes):
@@ -58,8 +65,9 @@ class DeconvolutionalEdge(Edge):
 
     def down(self, nodes):
         (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
-        cm_conv.convUp(node2.dy, self.W, node1.dy, self.n_locs, self.padding,
+        cm_conv.convUp(node2.dy, self.W, self.dy, self.n_locs, self.padding,
                        self.stride, self.n_channel)
+        node1.dy.add(self.dy)
 
     def gradient(self, nodes, gW):
         (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])

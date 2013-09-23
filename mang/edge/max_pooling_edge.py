@@ -28,18 +28,23 @@ class MaxPoolingEdge(Edge):
         self.on_gpu = False
         self.W = np.ones((1, 1))  # dummy weights for consistent interface
         self.o = None
+        self.dy = None
         self.used_gpu_memory = 0
 
     def to_gpu(self, batch_size):
         if not self.on_gpu:
             self.o = cm.empty((batch_size, self.shape[1]))
             self.used_gpu_memory += self.o.shape[0] * self.o.shape[1] * 4
+            self.dy = cm.empty((batch_size, self.shape[0]))
+            self.used_gpu_memory += self.dy.shape[0] * self.dy.shape[1] * 4
         Edge.to_gpu(self, batch_size)
 
     def from_gpu(self):
         if self.on_gpu:
             self.o.free_device_memory()
             self.used_gpu_memory -= self.o.shape[0] * self.o.shape[1] * 4
+            self.dy.free_device_memory()
+            self.used_gpu_memory -= self.dy.shape[0] * self.dy.shape[1] * 4
             del self.o
         Edge.from_gpu(self)
 
@@ -61,9 +66,9 @@ class MaxPoolingEdge(Edge):
     def down(self, nodes):
         (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
         cm_conv.MaxPoolUndo(
-            node1.y, node1.dy, node2.dy, self.o, self.ratio, 0, self.stride,
+            node1.y, self.dy, node2.dy, self.o, self.ratio, 0, self.stride,
             node2.shape[0])
-        node2.dy.mult(self.scale)
+        node1.dy.add_mult(self.dy, self.scale)
 
     def gradient(self, nodes, gW):
         gW.assign(0)

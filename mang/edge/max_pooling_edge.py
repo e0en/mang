@@ -17,7 +17,6 @@ class MaxPoolingEdge(Edge):
 
         self.ratio = option["ratio"]
         self.stride = option["stride"] if "stride" in option else self.ratio
-        self.scale = option["scale"] if "scale" in option else 1.
 
         size_in = reduce(mul, node1.shape)
         size_out = reduce(mul, node2.shape)
@@ -45,13 +44,12 @@ class MaxPoolingEdge(Edge):
             self.used_gpu_memory -= self.o.shape[0] * self.o.shape[1] * 4
             self.dy.free_device_memory()
             self.used_gpu_memory -= self.dy.shape[0] * self.dy.shape[1] * 4
-            del self.o
+            del self.o, self.dy
         Edge.from_gpu(self)
 
     def init_training(self, batch_size):
         self.to_gpu(batch_size)
         self.W.assign(1.)
-        self.scale = 1.
 
     def finish_training(self):
         self.from_gpu()
@@ -61,18 +59,16 @@ class MaxPoolingEdge(Edge):
         cm_conv.MaxPool(node1.y, self.o, self.n_channel, self.ratio, 0,
                         self.stride, node2.shape[0])
         node2.y.assign(self.o)
-        node2.y.mult(self.scale)
 
     def down(self, nodes):
         (node1, node2) = (nodes[self.conn[0]], nodes[self.conn[1]])
         cm_conv.MaxPoolUndo(
             node1.y, self.dy, node2.dy, self.o, self.ratio, 0, self.stride,
             node2.shape[0])
-        node1.dy.add_mult(self.dy, self.scale)
+        node1.dy.add(self.dy)
 
     def gradient(self, nodes, gW):
         gW.assign(0)
-        self.scale = float(self.W.asarray()[0])
 
     def to_dict(self):
         """Convert self to a dict."""
@@ -80,5 +76,4 @@ class MaxPoolingEdge(Edge):
         result = Edge.to_dict(self)
         result["ratio"] = self.ratio
         result["stride"] = self.stride
-        result["scale"] = self.scale
         return result

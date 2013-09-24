@@ -119,8 +119,9 @@ class FeedForwardNetwork(object):
                 for key in self.edge_param[conn]:
                     param[key] = self.edge_param[conn][key]
             self.edge_param[conn] = dict(param)
-            self.edges[conn].W = param['init_w'] * \
-                np.random.randn(*self.edges[conn].W.shape)
+            if option['reset']:
+                self.edges[conn].W = param['init_w'] * \
+                    np.random.randn(*self.edges[conn].W.shape)
             self.edges[conn].init_training(option['batch_size'])
             used_gpu_memory += self.edges[conn].used_gpu_memory
 
@@ -131,9 +132,9 @@ class FeedForwardNetwork(object):
                 for key in self.node_param[name]:
                     param[key] = self.node_param[name][key]
             self.node_param[name] = dict(param)
-            if self.nodes[name].use_bias:
-                self.nodes[name].b = \
-                    param['init_b'] * np.ones(self.nodes[name].b.shape)
+            if self.nodes[name].use_bias and option['reset']:
+                    self.nodes[name].b = \
+                        param['init_b'] * np.ones(self.nodes[name].b.shape)
             self.nodes[name].init_training(option)
             used_gpu_memory += self.nodes[name].used_gpu_memory
 

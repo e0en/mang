@@ -2,7 +2,10 @@ import Image
 import numpy as np
 
 
-def filter_image(mat, shape, order="F"):
+def filter_image(mat, shape=None, order="F"):
+    if shape is None:
+        shape = mat.shape
+
     n = mat.shape[0]
     w = int(np.sqrt(n))
     h = int(np.ceil(1. * n / w))

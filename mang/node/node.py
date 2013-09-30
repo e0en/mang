@@ -29,9 +29,8 @@ class Node(object):
             self.b = None
             self.shared = False
 
-        if "b" in option:
+        if "b" in option and self.use_bias:
             self.b = np.array(option["b"], dtype=np.float32, order="F")
-            self.use_bias = True
 
         self.on_gpu = False
         self.used_gpu_memory = 0

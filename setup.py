@@ -46,7 +46,7 @@ setup(
 
     install_requires=["numpy>=1.6.1", "msgpack-python", "msgpack_numpy"],
 
-    packages=["mang", "mang.node", "mang.edge", "mang.cudamat", "version"],
+    packages=["mang", "mang.node", "mang.edge", "mang.cudamat"],
     package_data={"mang.cudamat": CUDAMAT_FILES, },
     cmdclass={"install": MyInstall},
 

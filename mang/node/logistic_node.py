@@ -10,5 +10,5 @@ class LogisticNode(Node):
         self._add_b()
         self.y.apply_sigmoid()
 
-    def down():
+    def down(self):
         self.dy.apply_logistic_deriv(self.y)

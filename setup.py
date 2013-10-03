@@ -44,7 +44,8 @@ setup(
     version=version_git,
     description="Another neural network library for python based on cudamat",
 
-    install_requires=["numpy>=1.6.1", "msgpack-python", "msgpack_numpy"],
+    #install_requires=["numpy>=1.6.1", "msgpack-python", "msgpack_numpy"],
+    install_requires=["msgpack-python", "msgpack_numpy"],
 
     packages=["mang", "mang.node", "mang.edge", "mang.cudamat"],
     package_data={"mang.cudamat": CUDAMAT_FILES, },

@@ -226,7 +226,7 @@ class FeedForwardNetwork(object):
                     momentum_i = self.node_param[name]['momentum_i']
                     self.node_param[name]['momentum'] = \
                         r_epoch * momentum_f + (1. - r_epoch) * momentum_i
-                for conn in self.edge_param:
+                for conn in self.real_edges:
                     momentum_f = self.edge_param[conn]['momentum_f']
                     momentum_i = self.edge_param[conn]['momentum_i']
                     self.edge_param[conn]['momentum'] = \

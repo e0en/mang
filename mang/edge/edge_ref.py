@@ -8,7 +8,10 @@ class EdgeRef(object):
     def __init__(self, conn, original, option):
         self.conn = conn
         self.original = original
-        self.transpose = option["transpose"]
+        if 'transpose' in option:
+            self.transpose = option["transpose"]
+        else:
+            self.transpose = False
 
     def init_training(self, option):
         pass

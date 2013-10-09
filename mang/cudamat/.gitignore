@@ -17,6 +17,10 @@ develop-eggs
 .installed.cfg
 lib
 lib64
+<<<<<<< HEAD
+=======
+version.py
+>>>>>>> f625d5d6e915a412b08157c619a7e4c85a4ad078
 
 # Installer logs
 pip-log.txt
@@ -33,3 +37,6 @@ nosetests.xml
 .mr.developer.cfg
 .project
 .pydevproject
+
+# other files
+Makefile_alt

@@ -502,7 +502,7 @@ class FeedForwardNetwork(object):
         for conn in self.real_edges:
             self.edges[conn].to_gpu(batch_size)
 
-        n_batch = int(np.ceil(n_sample / batch_size))
+        n_batch = int(np.ceil(1. * n_sample / batch_size))
         for i_batch in xrange(n_batch):
             i_start = i_batch * batch_size
             i_end = min(n_sample, i_start + batch_size)
@@ -514,7 +514,8 @@ class FeedForwardNetwork(object):
                 self.nodes[name].y.overwrite(tmp)
             self._feed_forward()
             for name in result:
-                result[name][i_start:i_end] = self.nodes[name].y.asarray()
+                result[name][i_start:i_end] = \
+                        self.nodes[name].y.asarray()[:real_batch_size]
 
         for name in self.nodes:
             self.nodes[name].from_gpu()

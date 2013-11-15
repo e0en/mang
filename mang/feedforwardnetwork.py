@@ -293,7 +293,8 @@ class FeedForwardNetwork(object):
         for _ in xrange(n_batch):
             i_end = i_start + batch_size
             for name in data:
-                self._g['data'][name].overwrite(data[name][i_start:i_end])
+                if name in self._g['data']:
+                    self._g['data'][name].overwrite(data[name][i_start:i_end])
                 if name in self.inputs:
                     self.nodes[name].y.overwrite(data[name][i_start:i_end])
             self.fit_step()  # mini-batch training

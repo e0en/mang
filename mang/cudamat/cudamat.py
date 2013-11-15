@@ -334,7 +334,8 @@ class CUDAMatrix(object):
             raise ValueError(
                 "Assigned value must be of type CUDAMatrix, int or float.")
         if err_code:
-            raise generate_exception(err_code)
+            if get_last_cuda_error() != 'no error':
+                raise generate_exception(err_code)
         return self
 
     def free_device_memory(self):

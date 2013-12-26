@@ -222,6 +222,8 @@ class FeedForwardNetwork(object):
             if i_epoch < 500:
                 r_epoch = i_epoch / 500.
                 for name in self.node_param:
+                    if name in self.inputs:
+                        continue
                     momentum_f = self.node_param[name]['momentum_f']
                     momentum_i = self.node_param[name]['momentum_i']
                     self.node_param[name]['momentum'] = \
@@ -233,6 +235,8 @@ class FeedForwardNetwork(object):
                         r_epoch * momentum_f + (1. - r_epoch) * momentum_i
             else:
                 for name in self.node_param:
+                    if name in self.inputs:
+                        continue
                     self.node_param[name]['momentum'] = \
                         self.node_param[name]['momentum_f']
                 for conn in self.edge_param:

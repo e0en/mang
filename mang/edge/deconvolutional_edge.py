@@ -76,7 +76,7 @@ class DeconvolutionalEdge(Edge):
             self.filter_size, self.stride, self.n_channel)
         # don't divide gradient by # of samples because it is already averaged
         # over a lot of convolution locations
-        self.W_tmp.divide(node2.y.shape[0])
+        self.W_tmp.mult(1. / node2.y.shape[0])
         gW.add(self.W_tmp)
 
     def to_dict(self):

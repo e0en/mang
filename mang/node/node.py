@@ -40,7 +40,10 @@ class Node(object):
 
         if not self.on_gpu:
             if self.use_bias:
-                self.b = cm.CUDAMatrix(self.b.reshape(1, self.b.size))
+                # self.b = cm.CUDAMatrix(self.b.reshape(1, self.b.size))
+                b_host = np.array(self.b)
+                self.b = cm.empty((1, b_host.size))
+                self.b.overwrite(b_host.reshape(1, b_host.size))
                 self.used_gpu_memory += 4 * self.b.shape[0] * self.b.shape[1]
             self.y = cm.empty((batch_size, self.size))
             self.used_gpu_memory += 4 * self.y.shape[0] * self.y.shape[1]

@@ -20,7 +20,10 @@ class Edge(object):
 
     def to_gpu(self, batch_size):
         if not self.on_gpu:
-            self.W = cm.CUDAMatrix(self.W)
+            # self.W = cm.CUDAMatrix(self.W)
+            W_host = np.array(self.W)
+            self.W = cm.empty(self.W.shape)
+            self.W.overwrite(W_host)
             self.used_gpu_memory += self.W.shape[0] * self.W.shape[1] * 4
             self.on_gpu = True
 

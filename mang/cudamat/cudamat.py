@@ -1553,7 +1553,6 @@ def empty(shape):
     mat = cudamat()
     err_code = _cudamat.init_empty(
         ct.pointer(mat), ct.c_int(shape[0]), ct.c_int(shape[1]))
-
     if err_code:
         raise generate_exception(err_code)
 

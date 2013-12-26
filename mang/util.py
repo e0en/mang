@@ -73,7 +73,10 @@ def save_msgpack(filename, data):
 
 def load_msgpack(filename):
     with open(filename, "rb") as fp:
-        data = msgpack.unpackb(fp.read())
+        try:
+            data = msgpack.unpack(f)
+        except:
+            data = msgpack.unpack(fp, use_list=False)
         return data
 
 
